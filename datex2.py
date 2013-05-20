@@ -152,7 +152,6 @@ def output_locNodes(df):
 def readfromzip(zipped):
     z = zipfile.ZipFile(zipped, 'r')
     for filename in z.namelist():
-        print filename
         xmlstr = z.read(filename)
     return xmlstr
 
