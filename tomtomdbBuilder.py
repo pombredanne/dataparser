@@ -11,35 +11,40 @@ import ast
 from datex2 import readfromzip
 from xml.etree import ElementTree
 from datetime import datetime
+import pickle
 
-def definetable():
+
+def definetable(select, tablename):
     engine = create_engine('postgresql://postgres:dsim@localhost:5432/TomTom', echo=True)
     metadata = MetaData()
-    HD_Flow = Table('HD_Flow_Real_Time_Traffic', metadata,
-                    Column('record_time', types.TIMESTAMP(timezone=False)),
-                    Column('id', String(50), nullable=False),
-                    Column('openlr', String(64), nullable=False),
-                    Column('averageSpeed', Integer),
-                    Column('travelTime', Integer),
-                    Column('freeFlowSpeed', Integer),
-                    Column('freeFlowTravelTime', Integer)
-                    )
-    # openlrs = Table('OpenLR', metadata,
-    #                 Column('id', String(50), primary_key=True),
-    #                 Column('openlr', String(64), nullable=False),
-    #                 Column('source_lon', String(30), nullable=False),
-    #                 Column('source_lat', String(30), nullable=False),
-    #                 Column('target_lon', String(30), nullable=False),
-    #                 Column('target_lat', String(30), nullable=False),
-    #                 Column('bear1', Integer),
-    #                 Column('bear2', Integer),
-    #                 Column('fow1', String(25)),
-    #                 Column('fow2', String(25)),
-    #                 Column('frc1', String(4)),
-    #                 Column('frc2', String(4)),
-    #                 Column('lfrcnp1', String(4)),
-    #                 Column('dnp1', Integer)
-    #                 )
+    if 'HD' in select:
+        HD_Flow = Table(tablename, metadata,
+                        Column('record_time', types.TIMESTAMP(timezone=False)),
+                        Column('id', String(50), nullable=False),
+                        Column('openlr', String(64), nullable=False),
+                        Column('averageSpeed', Integer),
+                        Column('travelTime', Integer),
+                        Column('freeFlowSpeed', Integer),
+                        Column('freeFlowTravelTime', Integer)
+                        )
+
+    if 'OpenLR' in select:
+        openlrs = Table('OpenLR', metadata,
+                        Column('id', String(50), primary_key=True),
+                        Column('openlr', String(64), nullable=False),
+                        Column('source_lon', String(30), nullable=False),
+                        Column('source_lat', String(30), nullable=False),
+                        Column('target_lon', String(30), nullable=False),
+                        Column('target_lat', String(30), nullable=False),
+                        Column('bear1', Integer),
+                        Column('bear2', Integer),
+                        Column('fow1', String(25)),
+                        Column('fow2', String(25)),
+                        Column('frc1', String(4)),
+                        Column('frc2', String(4)),
+                        Column('lfrcnp1', String(4)),
+                        Column('dnp1', Integer)
+                        )
 
     metadata.create_all(engine)
     return 0
@@ -95,11 +100,12 @@ def empty(x):
         return -1
 
 
-def insertHD(df, timestamp):
-    engine = create_engine('postgresql://postgres:dsim@localhost:5432/TomTom', echo=True)
+def insertHD(df, timestamp, tablename):
+    engine = create_engine('postgresql://postgres:dsim@localhost:5432/TomTom')
     conn = engine.connect()
     metadata = MetaData()
-    HD_Flow = Table('HD_Flow_Real_Time_Traffic', metadata,
+    #alter table "HD_Flow_Real_Time_Traffic" add primary key (record_time, id);
+    HD_Flow = Table(tablename, metadata,
                     Column('record_time', types.TIMESTAMP(timezone=False)),
                     Column('id', String(50), nullable=False),
                     Column('openlr', String(64), nullable=False),
@@ -205,11 +211,46 @@ def datex2_content2(xmlcontent):
                        'freeFlowSpeed': freeFlowSpeed, 'freeFlowTravelTime': freeFlowTravelTime})
     return df
 
+# move to idgen.py temporarily!!!
+# def dataout():
+#     point2id = pickle.load(open('/home/jisun/workspace/pycode/TomTom/data/tmp/point2id.pcl', 'rb'))
+#     idsxy = np.unique(point2id.values())
+#     print idsxy[1]
+#     ids = {} #transfer the x y in to id
+#     for i, (x, y) in enumerate(idsxy):
+#         ids[''.join((x, y))] = i+1
+#     print len(ids.keys())
+#
+#     df = pd.read_csv('/home/jisun/workspace/pycode/TomTom/data/TT0514_0800to0830.csv')
+#     idpairs = {'source': [], 'target': [],
+#                'slon': [], 'slat': [],
+#                'tlon': [], 'tlat': []}
+#     for datarow in df[['source_lon', 'source_lat', 'target_lon', 'target_lat']].iterrows():
+#         ti = datarow[1]
+#         slon = repr(ti['source_lon'])
+#         slat = repr(ti['source_lat'])
+#         s = point2id[slon+slat]
+#         print s
+#         tlon = repr(ti['target_lon'])
+#         tlat = repr(ti['target_lat'])
+#         t = point2id[tlon+tlat]
+#         print t
+#         idpairs['source'].append(ids[''.join(s)])
+#         idpairs['target'].append(ids[''.join(t)])
+#         idpairs['slon'].append(s[0])
+#         idpairs['slat'].append(s[1])
+#         idpairs['tlon'].append(t[0])
+#         idpairs['tlat'].append(t[1])
+#     df1 = df[['id', 'averageSpeed', 'travelTime', 'dnp1']].join(pd.DataFrame(idpairs))
+#     df1.to_csv('/home/jisun/workspace/pycode/TomTom/data/TT0514_0800to0830_ids.csv')
+#
+
+
 if __name__ == '__main__':
-    # definetable()
+
     # selectdatafile()
     # datafolder = '/home/jisun/workspace/pycode/TomTom/data/c2select'
-    # datafile = 'content.xml.130513_121829.csv'
+    # datafile = 'content.xml.130513_121829_locs.csv'
     # df = pd.DataFrame.from_csv(osp.join(datafolder, datafile))
     # print df.dtypes
     # for i in df[:5].iterrows():
@@ -220,13 +261,21 @@ if __name__ == '__main__':
     #inserOpenlr(df)
 
     datafolder = '/home/jisun/workspace/nictamnt/tomtom/HD_Flow_Real_Time_Traffic'
-    # dates = [str(d) for d in range(511, 515)]
-
-    corruptimelist = ['131305', '131005', '032317', '032020', '032341', '032043',
-                      '020834', '020812', '020836', '020856', '020800', '020525',
-                      '020855']
-
-    fflistzip = set(glob(osp.join(datafolder, '*.130' + '514' + '_*.zip')))
+    # # dates = [str(d) for d in range(511, 515)]
+    #
+    # datafolder = '/home/jisun/workspace/pycode/TomTom/data/TT0514/*.zip'
+    # fflistzip = glob(datafolder)
+    tablename = 'TomtomGoodHD'
+    #definetable('HD', tablename)
+    # hr = ['12', '13', '14']
+    # define the file names
+    # datafolder = '/home/jisun/workspace/pycode/TomTom/data/TT0521_12to15'
+    # fpieces = ['content.xml.130521_{:s}*.zip'.format(hri) for hri in hr]
+    # fflistzip = []
+    # for fpiece in fpieces:
+    #     fflistzip.extend(glob(osp.join(datafolder, fpiece)))
+    fflistzip = glob(osp.join(datafolder, '*.zip'))
+    # print len(fflistzip)
     year = 2013
     for ff in fflistzip:
         basename = osp.basename(ff)
@@ -236,10 +285,17 @@ if __name__ == '__main__':
                              int(timestr[1][:2]),
                              int(timestr[1][2:4]),
                              int(timestr[1][4:]))
-        if basename.split('.')[-2].split('_')[-1] not in corruptimelist:
-            xmlcontent = readfromzip(ff)
-            df = datex2_content2(xmlcontent)
-            insertHD(df, timestamp)
+        if os.stat(ff).st_size > 0:
+            try:
+                xmlcontent = readfromzip(ff)
+                df = datex2_content2(xmlcontent)
+                insertHD(df, timestamp, tablename)
+            except:
+                print 'parsing error: {:s}'.format(ff)
+                continue
+        else:
+            continue
+
 
 
 
